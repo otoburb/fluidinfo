@@ -1,8 +1,8 @@
 ! Copyright (C) 2011 otoburb.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors base64 byte-arrays hashtables http http.client 
-json.reader json.writer kernel locals namespaces 
-sequences strings urls ;
+USING: accessors assocs base64 byte-arrays combinators 
+hashtables http http.client json.reader json.writer kernel 
+locals namespaces sequences strings urls ;
 
 IN: fluidinfo
 
@@ -11,9 +11,6 @@ SYMBOL: auth-token
 : base64-auth ( username password --  )
     [ ":" append ] dip append >base64 >string auth-token set ;
 
-: add-auth-header ( request -- request' )
-   "Basic " auth-token get append "Authorization" set-header ; 
-
 SYMBOL: fluid-instance
 CONSTANT: aws "http://ec2-184-72-128-158.compute-1.amazonaws.com:8080"
 CONSTANT: main "http://fluiddb.fluidinfo.com"
@@ -21,6 +18,10 @@ CONSTANT: sandbox "http://sandbox.fluidinfo.com"
 
 ! Low level REST API wrapper
 <PRIVATE
+
+: add-auth-header ( request -- request' )
+   auth-token get 
+   [ "Basic " prepend "Authorization" set-header ] when* ; 
 
 : tidy-response ( server-response byte-payload -- json-payload ) 
     nip >string json> ;
@@ -31,11 +32,32 @@ CONSTANT: sandbox "http://sandbox.fluidinfo.com"
 : fluid-request ( request -- assoc ) 
     fluid-http-request tidy-response ;
 
-: fluid-url ( path -- url )
-    fluid-instance get prepend >url ;
+ERROR: missing-fluid-instance ;
 
-: >json-post-data ( string/assoc post-data -- post-data' )
+: fluid-url ( path -- url )
+    fluid-instance get 
+    dup string? [ missing-fluid-instance throw ] unless 
+    prepend >url ;
+
+: >json-post-data ( post-data string/assoc -- post-data' )
     >json >byte-array >>data ;
+
+: single-json-payload ( value key -- post-data )
+    associate "application/json" <post-data> swap
+    >json-post-data ;
+
+: bool>string ( ? -- str )
+    { 
+        { t [ "True" ] } 
+        { f [ "False" ] }
+        [ ] 
+    } case ;
+
+: boolean-string-substitute ( assoc -- assoc' )
+    [ bool>string ] assoc-map ;
+
+: fluid-response-ok? ( response data -- t/f )
+    drop code>> 204 = ;
 
 PRIVATE>
 
@@ -80,18 +102,63 @@ PRIVATE>
     "about" associate >json-post-data swap
     <post-request> fluid-request ;
 
-: /objects-get ( query|id|id+tag -- response )
+: /objects-get-by-query ( query-assoc -- response )
+    "/objects/" fluid-url swap
+    [ first2 swap set-query-param ] each
+    <get-request> fluid-request ;
+
+: /objects-get-by-id ( uri-arg-assoc id -- response )
+    "/objects/" prepend fluid-url swap
+    [ first2 swap set-query-param ] each
+    <get-request> fluid-request ;
+
+: /objects-get-tag-value ( tag -- response )  
     "/objects/" prepend fluid-url <get-request> fluid-request ; 
 
 : /objects-head ( id+tag -- t/f )
-    "/objects/" prepend fluid-url <head-request> fluid-http-request drop
-    code>> 200 = ; 
+    "/objects/" prepend fluid-url <head-request> fluid-http-request 
+    fluid-response-ok? ; 
     
 : /objects-put ( post-data id+tag -- response )
     "/objects/" prepend fluid-url <put-request> fluid-request ;
 
 : /objects-delete ( id+tag -- t/f )
-    "/objects/" prepend fluid-url <delete-request> fluid-http-request drop
-    code>> 204 = ;
+    "/objects/" prepend fluid-url <delete-request> fluid-http-request 
+    fluid-response-ok? ;
 
+: /tags-post ( post-data namespace -- response )
+    "/tags/" prepend fluid-url <post-request> fluid-request ;
+
+: /tags-get ( uri-arg-assoc tag -- response )
+    swap [ "/tags/" prepend fluid-url ] dip
+    boolean-string-substitute first first2 swap set-query-param 
+    <get-request> fluid-request ;
+
+ : /tags-put ( description tag -- t/f )
+    "/tags/" prepend fluid-url swap
+    "description" single-json-payload swap
+    <put-request> fluid-http-request
+    fluid-response-ok? ;
+
+: /tags-delete ( namespace -- t/f )
+    "/tags/" prepend fluid-url <delete-request>
+    fluid-http-request fluid-response-ok? ; 
+
+: /users-get ( username -- response )
+    "/users/" prepend fluid-url <get-request> fluid-request ;
+
+: /values-get ( uri-args-assoc -- response )
+    "/values/" fluid-url swap 
+    [ first2 swap set-query-param ] each 
+    <get-request> fluid-request ;
+
+: /values-put ( queries-post-data -- t/f )
+    "/values/" fluid-url <put-request> fluid-http-request 
+    fluid-response-ok? ;
+
+: /values-delete ( uri-args-assoc -- t/f ) 
+    "/values/" fluid-url swap
+    [ first2 swap set-query-param ] each
+    <delete-request> fluid-http-request
+    fluid-response-ok? ; 
 
