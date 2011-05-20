@@ -162,3 +162,18 @@ PRIVATE>
     <delete-request> fluid-http-request
     fluid-response-ok? ; 
 
+: /permissions-get ( action-str namespace|tags|tag-values -- response )
+    "/permissions/" prepend fluid-url swap
+    "action" set-query-param <get-request> fluid-request ;
+
+: /permissions-put ( post-data action-str namespace|tags|tag-values -- response )
+    "/permissions/" prepend fluid-url swap
+    "action" set-query-param <put-request>
+    fluid-http-request fluid-response-ok? ;
+
+: /policies-get ( path -- response )
+    "/policies/" prepend fluid-url <get-request> fluid-request ;
+
+: /policies-put ( post-data path -- response )
+    "/policies/" prepend fluid-url <put-request> 
+    fluid-http-request fluid-response-ok? ;
