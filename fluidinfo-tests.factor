@@ -1,4 +1,5 @@
-USING: fluidinfo urls ; 
+USING: accessors assocs http http.client kernel 
+fluidinfo fluidinfo.private multiline tools.test urls ; 
 
 IN: fluidinfo.tests
  
