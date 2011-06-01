@@ -2,31 +2,63 @@
 ! See http://factorcode.org/license.txt for BSD license.
 USING: accessors assocs base64 byte-arrays classes 
 combinators debugger hashtables http http.client 
-io json.reader json.writer kernel locals 
-namespaces prettyprint sequences strings urls ;
+io io.encodings.string json.reader json.writer 
+kernel locals make namespaces present prettyprint 
+sequences strings urls ;
 
 IN: fluidinfo
 
-SYMBOL: auth-token 
+SYMBOL: fluid-auth 
 
 : base64-auth ( username password --  )
-    [ ":" append ] dip append >base64 >string auth-token set ;
+    [ ":" append ] dip append >base64 >string fluid-auth set ;
 
 SYMBOL: fluid-instance
-CONSTANT: aws "ec2-184-72-128-158.compute-1.amazonaws.com:8080"
-CONSTANT: sandbox "sandbox.fluidinfo.com" 
-CONSTANT: main "fluiddb.fluidinfo.com"
+CONSTANT: aws "http://ec2-184-72-128-158.compute-1.amazonaws.com:8080/"
+CONSTANT: sandbox "http://sandbox.fluidinfo.com/" 
+CONSTANT: main "http://fluiddb.fluidinfo.com/"
 main fluid-instance set-global
 
 ! Low level REST API wrapper
 <PRIVATE
 
 : add-auth-header ( request -- request' )
-   auth-token get 
+   fluid-auth get 
    [ "Basic " prepend "Authorization" set-header ] when* ; 
 
-: tidy-data ( data -- data' ) >string json> ;
+ERROR: fluid-error response ;
+M: fluid-error error.
+    "Fluidinfo error (" write dup class pprint ")" print
+    response>> [ code>> print ] [ message>> print ] bi ;
+
+ERROR: fluid-bad-request < fluid-error ;
+ERROR: fluid-not-found < fluid-error ;
+ERROR: fluid-unauthorized < fluid-error ;
+ERROR: fluid-not-acceptable < fluid-error ;
+ERROR: fluid-precondition-failed < fluid-error ;
+ERROR: fluid-entity-too-large < fluid-error ;
+
+: tidy-data ( data -- data' ) >string dup length 0 = [ json> ] unless ;
 : tidy-response ( response data -- data' ) nip tidy-data ;
+
+: fluid-check-response ( response -- response ) 
+    dup code>> {
+            { [ dup { 200 201 204 } member? ] [ drop ] } 
+            { [ dup 400 = ] [ fluid-bad-request ] }
+            { [ dup 401 = ] [ fluid-unauthorized ] }
+            { [ dup 404 = ] [ fluid-not-found ] }
+            { [ dup 406 = ] [ fluid-not-acceptable ] }
+            { [ dup 412 = ] [ fluid-precondition-failed ] }
+            { [ dup 413 = ] [ fluid-entity-too-large ] }
+            [ fluid-error ] 
+    } cond ;
+
+: fluid-check-response-with-body ( response body -- response body )
+    [ >>body fluid-check-response ] keep ;
+
+: (fluid-http-request) ( request -- response data )
+    [ [ % ] with-http-request ] B{ } make
+    over content-encoding>> decode fluid-check-response-with-body ;
 
 : fluid-http-request ( request -- response data ) 
     add-auth-header http-request tidy-data ;
@@ -58,44 +90,19 @@ ERROR: missing-fluid-instance ;
 : boolean-string-substitute ( assoc -- assoc' )
     [ bool>string ] assoc-map ;
 
-: fluid-response-ok? ( response data -- t/f )
-    drop code>> 204 = ;
+: remove-leading-slash ( string -- string )
+    dup first 1string "/" = [ 1 tail ] when ; 
 
-: ensure-fluid-hostname ( url -- url ) 
-    >url dup host>> [ fluid-instance get >>host "http" >>protocol ] unless ;
-
-GENERIC: >fluid-url ( object -- url )
-M: string >fluid-url ensure-fluid-hostname ;
-M: url >fluid-url ensure-fluid-hostname ;
+: >fluid-url ( url -- url' ) 
+    >url dup host>> 
+    [ path>> fluid-instance get swap  
+        remove-leading-slash url-append-path >url ] unless ; 
 
 : set-query-params ( url/string params-hash -- url )
     [ >fluid-url ] dip [ swap set-query-param ] assoc-each ;
 
 PRIVATE>
 
-ERROR: fluid-error response ;
-M: fluid-error error.
-    "Fluidinfo error (" write dup class pprint ")" print
-    response>> [ code>> print ] [ message>> print ] bi ;
-
-ERROR: fluid-bad-request < fluid-error ;
-ERROR: fluid-not-found < fluid-error ;
-ERROR: fluid-unauthorized < fluid-error ;
-ERROR: fluid-not-acceptable < fluid-error ;
-ERROR: fluid-precondition-failed < fluid-error ;
-ERROR: fluid-entity-too-large < fluid-error ;
-
-: check-response ( response -- ) 
-    dup code>> {
-            { [ dup { 200 201 204 } member? ] [ 2drop ] } 
-            { [ dup 400 = ] [ drop fluid-bad-request ] }
-            { [ dup 401 = ] [ drop fluid-unauthorized ] }
-            { [ dup 404 = ] [ drop fluid-not-found ] }
-            { [ dup 406 = ] [ drop fluid-not-acceptable ] }
-            { [ dup 412 = ] [ drop fluid-precondition-failed ] }
-            { [ dup 413 = ] [ drop fluid-entity-too-large ] }
-            [ drop fluid-error ] 
-    } cond ;
 
 : fluid-post ( post-data url -- response data ) 
     >fluid-url <post-request> fluid-http-request ;
