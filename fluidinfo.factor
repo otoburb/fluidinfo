@@ -38,9 +38,6 @@ ERROR: fluid-not-acceptable < fluid-error ;
 ERROR: fluid-precondition-failed < fluid-error ;
 ERROR: fluid-entity-too-large < fluid-error ;
 
-: tidy-data ( data -- data' ) >string dup length 0 = [ json> ] unless ;
-: tidy-response ( response data -- data' ) nip tidy-data ;
-
 : fluid-check-response ( response -- response ) 
     dup code>> {
             { [ dup { 200 201 204 } member? ] [ drop ] } 
@@ -52,6 +49,9 @@ ERROR: fluid-entity-too-large < fluid-error ;
             { [ dup 413 = ] [ fluid-entity-too-large ] }
             [ fluid-error ] 
     } cond ;
+
+: tidy-data ( data -- data' ) >string dup length 0 = [ json> ] unless ;
+: tidy-response ( response data -- data' ) nip tidy-data ;
 
 : fluid-check-response-with-body ( response body -- response body )
     [ >>body fluid-check-response ] keep ;
@@ -80,14 +80,14 @@ ERROR: missing-fluid-instance ;
     associate "application/json" <post-data> swap
     >json-post-data ;
 
-: bool>string ( ? -- str )
+: (bool>string) ( ? -- str )
     { 
         { t [ "True" ] } 
         { f [ "False" ] }
         [ ] 
     } case ;
 
-: boolean-string-substitute ( assoc -- assoc' )
+: bool>string ( assoc -- assoc' )
     [ bool>string ] assoc-map ;
 
 : remove-leading-slash ( string -- string )
@@ -98,8 +98,8 @@ ERROR: missing-fluid-instance ;
     [ path>> fluid-instance get swap  
         remove-leading-slash url-append-path >url ] unless ; 
 
-: set-query-params ( url/string params-hash -- url )
-    [ >fluid-url ] dip [ swap set-query-param ] assoc-each ;
+: fluid-set-query-params ( url/string params-hash -- url )
+    [ >fluid-url ] dip bool>string >>query ;
 
 PRIVATE>
 

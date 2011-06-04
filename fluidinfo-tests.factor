@@ -1,4 +1,4 @@
-USING: accessors assocs http http.client kernel 
+USING: accessors assocs byte-arrays http http.client kernel 
 fluidinfo fluidinfo.private multiline tools.test urls ; 
 
 IN: fluidinfo.tests
@@ -39,6 +39,25 @@ unit-test
     URL" about/chewing-gum" >fluid-url = 
 ] unit-test
 
+[ T{ url
+    { protocol "http" }
+    { host "fluiddb.fluidinfo.com" }
+    { path "/namespaces/fluidinfo-factor/foo" }
+    { query H{  { "returnDescription" "True" }
+                { "returnNamespaces" "True" }
+                { "returnTags" "True" }
+            } 
+    }
+  }
+] 
+[ 
+    "/namespaces/fluidinfo-factor/foo" 
+    H{  { "returnDescription" t } 
+        { "returnNamespaces" t } 
+        { "returnTags" "True" }
+    }
+    bool>string fluid-set-query-params
+] unit-test 
 
 ! Live fire exercise
 !   - assumes fluiddb.fluidinfo.com main instance is alive
@@ -81,7 +100,52 @@ unit-test
     [ "/about/London/fluidinfo-factor/rating" fluid-delete
     [ code>> ] dip ] unit-test
 
+! POST /namespaces/namespace1/namespace2
+[ 
+    H{
+        {
+        "URI"
+        "http://fluiddb.fluidinfo.com/namespaces/fluidinfo-factor/foo"
+        }
+        { "id" "997e04a5-3558-4bfe-a2e6-7d1eab9fac17" }
+    } ]
+    [   "application/json" <post-data> 
+    H{ 
+        { "description" "Foo description for a foo-ey namespace!" } 
+        { "name" "foo" } } >json-post-data 
+    "/namespaces/fluidinfo-factor" fluid-post 
+] unit-test
 
+! GET /namespaces/ns1/ns2
+[ 200 "997e04a5-3558-4bfe-a2e6-7d1eab9fac17" ] 
+[ "/namespaces/fluidinfo-factor/foo" fluid-get [ code>> ] dip "id" swap at ] unit-test
+
+! PUT /namespaces/ns1/ns2
+[ 204 "" ]
+[ "application/json" <post-data>
+    H{ 
+        { "description" 
+          "Updated description for namespace fluidinfo-factor/foo" } 
+    } >json-post-data 
+    "/namespaces/fluidinfo-factor/foo" fluid-put [ code>> ] dip ] 
+] unit-test
+
+! DELETE /namespaces/ns1/ns2
+[ 204 "" ] [ "/namespaces/fluidinfo-factor/foo" fluid-delete 
+    [ code>> ] dip ] unit-test
+
+! POST /objects
+[ 201 ] [ 
+    "application/json" <post-data>
+    H{ { "about" "about:fluidinfo-factor test object" } } >json-post-data
+    "/objects" fluid-post drop code>> ] unit-test 
+
+[ 201 ] [ 
+    "application/json" <post-data>
+    "/objects" fluid-post drop code>> ] unit-test
+
+! GET /objects
+[ 
 
 /* {
     {
