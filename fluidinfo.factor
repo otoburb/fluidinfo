@@ -88,7 +88,7 @@ ERROR: missing-fluid-instance ;
     } case ;
 
 : bool>string ( assoc -- assoc' )
-    [ bool>string ] assoc-map ;
+    [ (bool>string) ] assoc-map ;
 
 : remove-leading-slash ( string -- string )
     dup first 1string "/" = [ 1 tail ] when ; 

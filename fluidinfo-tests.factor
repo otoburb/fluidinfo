@@ -145,7 +145,14 @@ unit-test
     "/objects" fluid-post drop code>> ] unit-test
 
 ! GET /objects
-[ 
+[ 200 ] [
+    "/objects" H{ { "query" "fluiddb/about matches \"fluidinfo-factor\"" } } 
+    fluid-set-query-params fluid-get drop code>> ] unit-test
+! GET /objects/id
+[ 200 "about:fluidinfo-factor test object" ] [
+    "/objects/fde1f917-6c56-42f9-90da-9105828cc44a" 
+    H{ { "showAbout" "True" } } fluid-set-query-params fluid-get 
+    [ code>> ] [ "about" swap at ] bi* ] unit-test
 
 /* {
     {
