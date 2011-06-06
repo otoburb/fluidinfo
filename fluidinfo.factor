@@ -73,12 +73,15 @@ ERROR: missing-fluid-instance ;
     dup string? [ missing-fluid-instance throw ] unless 
     prepend >url ;
 
-: >json-post-data ( post-data string/assoc -- post-data' )
+: (json-post-data) ( post-data string/assoc -- post-data' )
     >json >byte-array >>data ;
+
+: >json-post-data ( string/hash -- post-data )
+    [ "application/json" <post-data> ] dip (json-post-data) ;
 
 : single-json-payload ( value key -- post-data )
     associate "application/json" <post-data> swap
-    >json-post-data ;
+    (json-post-data) ;
 
 : (bool>string) ( ? -- str )
     { 

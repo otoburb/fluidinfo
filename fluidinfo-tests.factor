@@ -109,7 +109,7 @@ unit-test
         }
         { "id" "997e04a5-3558-4bfe-a2e6-7d1eab9fac17" }
     } ]
-    [   "application/json" <post-data> 
+    [    
     H{ 
         { "description" "Foo description for a foo-ey namespace!" } 
         { "name" "foo" } } >json-post-data 
@@ -122,7 +122,7 @@ unit-test
 
 ! PUT /namespaces/ns1/ns2
 [ 204 "" ]
-[ "application/json" <post-data>
+[ 
     H{ 
         { "description" 
           "Updated description for namespace fluidinfo-factor/foo" } 
@@ -136,7 +136,6 @@ unit-test
 
 ! POST /objects
 [ 201 ] [ 
-    "application/json" <post-data>
     H{ { "about" "about:fluidinfo-factor test object" } } >json-post-data
     "/objects" fluid-post drop code>> ] unit-test 
 
@@ -153,6 +152,107 @@ unit-test
     "/objects/fde1f917-6c56-42f9-90da-9105828cc44a" 
     H{ { "showAbout" "True" } } fluid-set-query-params fluid-get 
     [ code>> ] [ "about" swap at ] bi* ] unit-test
+! GET /objects/id/ns1/ns2/tag w/ primitive value
+[ 200 "about:fluidinfo-factor test object" ] [
+    "/objects/fde1f917-6c56-42f9-90da-9105828cc44a/fluiddb/about"
+    fluid-get [ code>> ] dip ] unit-test
+! GET /objects/id/ns1/ns2/tag w/ opaque value
+
+! HEAD /objects/id/ns1/ns2/tag
+[ 200 ] [ 
+        "/objects/fde1f917-6c56-42f9-90da-9105828cc44a/fluiddb/about"
+        fluid-head drop code>> ] unit-test
+
+! PUT /objects/id/ns1/ns2/tag w/ primitive values
+[ 204 ] [ 
+    "application/vnd.fluiddb.value+json" <post-data>
+    "6" >byte-array >>data
+    "/objects/fde1f917-6c56-42f9-90da-9105828cc44a/fluidinfo-factor/rating"
+    fluid-put drop code>> ] unit-test 
+
+! PUT /objects/id/ns1/ns2/tag w/ opaque data
+[ 204 ] [ 
+    "text/html" <post-data>
+    "<p>This is a simple paragraph with HTML tags</p>" >byte-array >>data
+    "/objects/fde1f917-6c56-42f9-90da-9105828cc44a/fluidinfo-factor/rating"
+    fluid-put drop code>> ] unit-test 
+
+! DELETE /objects/id/ns1/ns2/tag
+[ 204 ] [ 
+    "/objects/fde1f917-6c56-42f9-90da-9105828cc44a/fluidinfo-factor/rating"
+    fluid-delete drop code>> ] unit-test
+
+! GET /permissions/namespaces/ns1/ns2
+[ 200 "open" ] [ 
+    "/permissions/namespaces/fluidinfo-factor" 
+    H{ { "action" "list" } } fluid-set-query-params
+    fluid-get [ code>> ] [ "policy" swap at ] bi* ] unit-test
+
+! GET /permissions/tag-values/ns1/ns2/tag
+[ 200 "open" ] [ 
+    "/permissions/tag-values/fluidinfo-factor/rating" 
+    H{ { "action" "read" } } fluid-set-query-params
+    fluid-get [ code>> ] [ "policy" swap at ] bi* ] unit-test
+
+! PUT /permissions/namespaces/ns1/ns2
+[ 204 "" ] [
+    H{  { "exceptions" { "fluidinfo-factor" } } 
+        { "policy" "closed" } } >json-post-data
+    "/permissions/namespaces/fluidinfo-factor/permsfoo" 
+    H{ { "action" "list" } } fluid-set-query-params
+    fluid-put [ code>> ] dip ] unit-test
+
+! PUT /permissions/tags/ns1/ns2/tag
+[ 204 "" ] [
+    H{  { "exceptions" { "fluidinfo-factor" } } 
+        { "policy" "closed" } } >json-post-data
+    "/permissions/tags/fluidinfo-factor/permsfoo/quz" 
+    H{ { "action" "update" } } fluid-set-query-params
+    fluid-put [ code>> ] dip ] unit-test
+
+! PUT /permissions/tag-values/ns1/ns2/tag
+[ 204 "" ] [
+    H{  { "exceptions" { "fluidinfo-factor" } } 
+        { "policy" "closed" } } >json-post-data
+    "/permissions/tag-values/fluidinfo-factor/permsfoo/quz" 
+    H{ { "action" "read" } } fluid-set-query-params
+    fluid-put [ code>> ] dip ] unit-test
+
+! GET /policies/username/category/action
+[ 200 "closed" ] [ 
+    "/policies/fluidinfo-factor/namespaces/create" fluid-get
+    [ code>> ] [ "policy" swap at ] bi* ] unit-test
+
+! PUT /policies/username/category/action
+[ 204 "" ] [
+    H{  { "exceptions" { "fluidinfo-factor" } } 
+        { "policy" "closed" } } >json-post-data
+    "/policies/fluidinfo-factor/namespaces/create" 
+    fluid-put [ code>> ] dip ] unit-test
+
+! POST /tags/ns1/ns2/tag
+[ 201 ] [
+    H{  { "description" "HI tag!" } 
+        { "indexed" t }
+        { "name" "hi" } } >json-post-data 
+    "/tags/fluidinfo-factor" fluid-post drop code>> ] unit-test
+
+! GET /tags/ns1/ns2/tag
+[ 200 ] [ 
+    "/tags/fluidinfo-factor/hi" 
+    H{ { "returndescription" "true" } } fluid-set-query-params
+    fluid-get drop code>> ] unit-test
+
+[ 204 "" ] [
+    H{ { "description" "Modified description of the HI tag :)" } }
+    >json-post-data "/tags/fluidinfo-factor/hi"
+    fluid-put [ code>> ] dip ] unit-test
+
+! DELETE /tags/ns1/ns2/tag
+[ 204 "" ] 
+    [ "/tags/fluidinfo-factor/hi" fluid-delete [ code>> ] dip ] unit-test
+
+
 
 /* {
     {
