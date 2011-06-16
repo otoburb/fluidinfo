@@ -14,12 +14,14 @@ SYMBOL: fluid-auth
     [ ":" append ] dip append >base64 >string fluid-auth set ;
 
 SYMBOL: fluid-instance
-CONSTANT: aws "http://ec2-184-72-128-158.compute-1.amazonaws.com:8080/"
 CONSTANT: sandbox "http://sandbox.fluidinfo.com/" 
 CONSTANT: main "http://fluiddb.fluidinfo.com/"
 main fluid-instance set-global
 
-! Low level REST API wrapper
+! aws test instance to examine headers via netcat
+CONSTANT: aws "http://ec2-184-72-128-158.compute-1.amazonaws.com:8080/"
+
+
 <PRIVATE
 
 : add-auth-header ( request -- request' )
