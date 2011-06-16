@@ -252,7 +252,12 @@ unit-test
 [ 204 "" ] 
     [ "/tags/fluidinfo-factor/hi" fluid-delete [ code>> ] dip ] unit-test
 
+! GET /users/username
+[ 200 "Fluidinfo Factor Library" ] [ 
+    "/users/fluidinfo-factor" fluid-get
+    [ code>> ] [ "name" swap at ] bi* ] unit-test
 
+! GET /values
 
 /* {
     {
