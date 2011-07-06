@@ -1,5 +1,6 @@
 USING: accessors assocs byte-arrays http http.client kernel 
-fluidinfo fluidinfo.private multiline tools.test urls ; 
+fluidinfo fluidinfo.private multiline namespaces tools.test 
+sequences urls json.writer ; 
 
 IN: fluidinfo.tests
 
@@ -79,8 +80,6 @@ unit-test
 [ 200 "London" ] 
     [ "/about/London/fluiddb/about" fluid-get [ code>> ] dip ] unit-test 
 
-! GET /about/aboutstr/ns1/ns2/tag w/ opaque value
-
 ! HEAD /about/aboutstr/ns1/ns2/tag
 [ 200 "" ] 
     [ "/about/Toronto/fluiddb/about" fluid-head [ code>> ] dip ] unit-test
@@ -93,27 +92,19 @@ unit-test
     [ code>> ] dip 
 ] unit-test
 
-! PUT /about/aboutstr/ns1/ns2/tag w/ opaque value
-
 ! DELETE /about/aboutstr/ns1/ns2/tag 
 [ 204 "" ] 
     [ "/about/London/fluidinfo-factor/rating" fluid-delete
     [ code>> ] dip ] unit-test
 
 ! POST /namespaces/namespace1/namespace2
-[ 
-    H{
-        {
-        "URI"
-        "http://fluiddb.fluidinfo.com/namespaces/fluidinfo-factor/foo"
-        }
-        { "id" "997e04a5-3558-4bfe-a2e6-7d1eab9fac17" }
-    } ]
-    [    
-    H{ 
+[ 201 "http://fluiddb.fluidinfo.com/namespaces/fluidinfo-factor/foo" 
+    "997e04a5-3558-4bfe-a2e6-7d1eab9fac17" ]
+    [ H{ 
         { "description" "Foo description for a foo-ey namespace!" } 
         { "name" "foo" } } >json-post-data 
     "/namespaces/fluidinfo-factor" fluid-post 
+    [ code>> ] dip [ "URI" swap at ] [ "id" swap at ] bi 
 ] unit-test
 
 ! GET /namespaces/ns1/ns2
@@ -127,8 +118,7 @@ unit-test
         { "description" 
           "Updated description for namespace fluidinfo-factor/foo" } 
     } >json-post-data 
-    "/namespaces/fluidinfo-factor/foo" fluid-put [ code>> ] dip ] 
-] unit-test
+    "/namespaces/fluidinfo-factor/foo" fluid-put [ code>> ] dip ] unit-test
 
 ! DELETE /namespaces/ns1/ns2
 [ 204 "" ] [ "/namespaces/fluidinfo-factor/foo" fluid-delete 
@@ -147,16 +137,17 @@ unit-test
 [ 200 ] [
     "/objects" H{ { "query" "fluiddb/about matches \"fluidinfo-factor\"" } } 
     fluid-set-query-params fluid-get drop code>> ] unit-test
+
 ! GET /objects/id
 [ 200 "about:fluidinfo-factor test object" ] [
     "/objects/fde1f917-6c56-42f9-90da-9105828cc44a" 
     H{ { "showAbout" "True" } } fluid-set-query-params fluid-get 
     [ code>> ] [ "about" swap at ] bi* ] unit-test
+
 ! GET /objects/id/ns1/ns2/tag w/ primitive value
 [ 200 "about:fluidinfo-factor test object" ] [
     "/objects/fde1f917-6c56-42f9-90da-9105828cc44a/fluiddb/about"
     fluid-get [ code>> ] dip ] unit-test
-! GET /objects/id/ns1/ns2/tag w/ opaque value
 
 ! HEAD /objects/id/ns1/ns2/tag
 [ 200 ] [ 
@@ -258,27 +249,111 @@ unit-test
     [ code>> ] [ "name" swap at ] bi* ] unit-test
 
 ! GET /values
-
-/* {
+[ 200  
+H{
     {
-        "queries"
-        {
+        "results"
+        H{
             {
-                "mike/rating > 5"
+                "id"
                 H{
-                    { "ntoll/seen" H{ { "value" t } } }
-                    { "ntoll/rating" H{ { "value" 6 } } }
+                    {
+                        "7ed045bc-89dc-4f72-adb7-a5dc9a484861"
+                        H{
+                            {
+                                "fluiddb/about"
+                                H{
+                                    {
+                                        "value"
+                                        "factorcode.org"
+                                    }
+                                }
+                            }
+                            {
+                                "fluidinfo-factor/rating"
+                                H{ { "value" 6 } }
+                            }
+                        }
+                    }
+                    {
+                        "a1c3dea9-dde3-4dd6-9651-b1d682d5c0ff"
+                        H{
+                            {
+                                "fluiddb/about"
+                                H{ { "value" "Toronto" } }
+                            }
+                            {
+                                "fluidinfo-factor/rating"
+                                H{ { "value" 6 } }
+                            }
+                        }
+                    }
+                    {
+                        "3d77462a-00d8-4495-ad4d-58b8851216c9"
+                        H{
+                            {
+                                "fluiddb/about"
+                                H{ { "value" "Vancouver" } }
+                            }
+                            {
+                                "fluidinfo-factor/rating"
+                                H{ { "value" 6 } }
+                            }
+                        }
+                    }
+                    {
+                        "544ab4db-7629-443f-bd78-6577a60ab809"
+                        H{
+                            {
+                                "fluiddb/about"
+                                H{
+                                    { "value" "New York City" }
+                                }
+                            }
+                            {
+                                "fluidinfo-factor/rating"
+                                H{ { "value" 6 } }
+                            }
+                        }
+                    }
                 }
-            }
-            {
-                "fluiddb/about matches \"great\""
-                H{ { "ntoll/rating" H{ { "value" 10 } } } }
-            }
-            {
-                "fluiddb/id = \"6ed3e622-a6a6-4a7e-bb18-9d3440678851\""
-                H{ { "mike/seen" H{ { "value" t } } } }
             }
         }
     }
 }
-*/
+ ] [
+    "/values"
+    H{
+    { "query" "has fluidinfo-factor/visited" } 
+    { "tag" { "fluidinfo-factor/rating" "fluiddb/about" } } } 
+    fluid-set-query-params fluid-get [ code>> ] dip ] unit-test
+
+! PUT /values
+[ 204 ] [ 
+    f jsvar-encode? 
+    [ H{ { "queries" {
+            { "has fluidinfo-factor/visited" 
+              H{
+                    { "fluidinfo-factor/seen" H{ { "value" t } } }
+                    { "fluidinfo-factor/rating" H{ { "value" 6 } } }
+               }
+            }
+            { "fluiddb/about matches \"great\""
+              H{ 
+                { "fluidinfo-factor/rating" H{ { "value" 10 } } } 
+                { "fluidinfo-factor/liked" H{ { "value" t } } } }
+            }
+            { "fluiddb/id = \"6ed3e622-a6a6-4a7e-bb18-9d3440678851\""
+              H{ { "fluidinfo-factor/seen" H{ { "value" t } } } }
+            }
+        } } } >json-post-data ] with-variable 
+   "/values" fluid-put drop code>> ] unit-test 
+
+! DELETE /values
+[ 204 ] [
+    "/values" H{ 
+        { "query" "fluidinfo-factor/rating>5" }
+        { "tag" { "fluidinfo-factor/rating" "fluidinfo-factor/liked" }
+    } } fluid-set-query-params fluid-delete drop code>> ] unit-test
+
+! End of live-fire exercise
