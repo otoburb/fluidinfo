@@ -4,7 +4,6 @@ USING: accessors assocs base64 byte-arrays classes
 combinators debugger hashtables http http.client 
 io io.encodings.string json.reader json.writer 
 kernel locals make namespaces present prettyprint 
-multiline
 sequences strings urls ;
 
 IN: fluidinfo
@@ -25,15 +24,6 @@ CONSTANT: aws "http://ec2-184-72-128-158.compute-1.amazonaws.com:8080/"
 
 <PRIVATE
 
-! Modified version of json-print generic method for hashtables
-!   ... removed "jsvar-encode" to prevent conversion of dashes
-/*
-M: hashtable json-print ( hashtable -- )
-    CHAR: { write1 
-    [ [ swap >json % CHAR: : , >json % ] "" make ]
-    { } assoc>map "," join write 
-    CHAR: } write1 ;
-*/
 : add-auth-header ( request -- request' )
    fluid-auth get 
    [ "Basic " prepend "Authorization" set-header ] when* ; 
